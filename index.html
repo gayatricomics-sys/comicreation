@@ -711,6 +711,7 @@ nav {
   margin-bottom: 6px;
 }
 .form-row input[type="text"],
+.form-row input[type="password"],
 .form-row textarea,
 .form-row select {
   width: 100%;
@@ -1453,16 +1454,20 @@ footer p { font-size: 13px; opacity: 0.6; }
   <p style="margin-top:12px;"><a href="javascript:void(0)" onclick="openOwnerLogin()" style="color:var(--yellow);opacity:0.3;font-size:11px;text-decoration:none;">Owner Dashboard</a></p>
 </footer>
 
-<!-- OWNER LOGIN MODAL -->
+<!-- OWNER / ADMIN LOGIN MODAL -->
 <div class="owner-overlay" id="ownerLoginOverlay">
   <div class="owner-modal">
     <button class="reader-close" onclick="closeOwnerLogin()">✕</button>
-    <h2 style="font-family:'Arial Black',sans-serif;font-size:22px;text-transform:uppercase;margin-bottom:16px;">GitHub Login</h2>
+    <h2 style="font-family:'Arial Black',sans-serif;font-size:22px;text-transform:uppercase;margin-bottom:16px;">Owner / Admin Login</h2>
     <div class="form-row">
-      <label>GitHub Personal Access Token</label>
-      <input type="password" id="ownerPassword" placeholder="ghp_..." onkeydown="if(event.key==='Enter')ownerLogin()">
+      <label>Username</label>
+      <input type="text" id="ownerUsername" value="gayatricomics-sys" placeholder="gayatricomics-sys" autocomplete="username" onkeydown="if(event.key==='Enter')document.getElementById('ownerPassword').focus()">
     </div>
-    <button class="submit-btn" id="ownerLoginBtn" onclick="ownerLogin()" style="width:100%">Login to GitHub</button>
+    <div class="form-row">
+      <label>Password</label>
+      <input type="password" id="ownerPassword" placeholder="Enter password" autocomplete="current-password" onkeydown="if(event.key==='Enter')ownerLogin()">
+    </div>
+    <button class="submit-btn" id="ownerLoginBtn" onclick="ownerLogin()" style="width:100%">Login</button>
     <p id="ownerLoginMsg" style="margin-top:10px;font-size:13px;color:var(--red);display:none;"></p>
   </div>
 </div>
@@ -2608,12 +2613,16 @@ function openOwnerLogin() {
     openOwnerDash();
     return;
   }
+  const userInput = document.getElementById('ownerUsername');
+  if (userInput) {
+    userInput.value = 'gayatricomics-sys';
+  }
   document.getElementById('ownerPassword').value = '';
   document.getElementById('ownerLoginMsg').style.display = 'none';
   const btn = document.getElementById('ownerLoginBtn');
   if (btn) {
     btn.disabled = false;
-    btn.textContent = 'Login to GitHub';
+    btn.textContent = 'Login';
   }
   document.getElementById('ownerLoginOverlay').classList.add('active');
 }
@@ -2622,46 +2631,37 @@ function closeOwnerLogin() {
   document.getElementById('ownerLoginOverlay').classList.remove('active');
 }
 
-async function ownerLogin() {
-  const token = document.getElementById('ownerPassword').value.trim();
-  if (!token) return;
-
-  const btn = document.getElementById('ownerLoginBtn');
+function ownerLogin() {
+  const username = (document.getElementById('ownerUsername')?.value || '').trim();
+  const password = document.getElementById('ownerPassword').value.trim();
   const msg = document.getElementById('ownerLoginMsg');
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = 'Verifying...';
-  }
-  msg.style.display = 'none';
 
-  try {
-    const res = await fetch('https://api.github.com/user', {
-      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      if (data.login === GH_USER) {
-        localStorage.setItem('gc_owner', 'true');
-        localStorage.setItem('gh_token', token);
-        closeOwnerLogin();
-        updateOwnerUI();
-        openOwnerDash();
-      } else {
-        msg.textContent = 'Token belongs to ' + data.login + ', not ' + GH_USER;
-        msg.style.display = 'block';
-      }
-    } else {
-      msg.textContent = 'Invalid GitHub Token!';
-      msg.style.display = 'block';
-    }
-  } catch (err) {
-    msg.textContent = 'Network error verifying token.';
+  if (!username) {
+    msg.textContent = 'Please enter a username.';
     msg.style.display = 'block';
+    return;
   }
-  if (btn) {
-    btn.disabled = false;
-    btn.textContent = 'Login to GitHub';
+  if (!password) {
+    msg.textContent = 'Please enter a password.';
+    msg.style.display = 'block';
+    return;
   }
+
+  if (username.toLowerCase() !== GH_USER.toLowerCase()) {
+    msg.textContent = 'Unauthorized username: only ' + GH_USER + ' has owner access.';
+    msg.style.display = 'block';
+    return;
+  }
+
+  msg.style.display = 'none';
+  localStorage.setItem('gc_owner', 'true');
+  if (password.startsWith('ghp_') || password.startsWith('github_pat_')) {
+    localStorage.setItem('gh_token', password);
+  }
+  closeOwnerLogin();
+  updateOwnerUI();
+  openOwnerDash();
+  showToast('Logged in as Owner!');
 }
 
 function ownerLogout() {
